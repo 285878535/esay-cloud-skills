@@ -1,0 +1,27 @@
+{
+  "name": "skills-manager",
+  "version": "0.1.0",
+  "description": "Manage AI tool skills and sync them through iCloud with symlinks.",
+  "type": "module",
+  "bin": {
+    "skills-manager": "./src/cli.js"
+  },
+  "scripts": {
+    "start": "node ./src/cli.js",
+    "scan": "node ./src/cli.js scan",
+    "setup": "node ./src/cli.js setup",
+    "doctor": "node ./src/cli.js doctor",
+    "tauri:dev": "tauri dev",
+    "tauri:build": "tauri build"
+  },
+  "dependencies": {
+    "@tauri-apps/api": "^2.0.0"
+  },
+  "devDependencies": {
+    "@tauri-apps/cli": "^2.0.0"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "license": "MIT"
+}

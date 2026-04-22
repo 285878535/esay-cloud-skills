@@ -1,0 +1,86 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Skills Manager</title>
+    <link rel="stylesheet" href="./ui/styles.css" />
+  </head>
+  <body>
+    <div class="app-shell">
+      <header class="toolbar">
+        <div class="toolbar-left">
+          <h1 data-i18n="title">Skills Manager</h1>
+          <span id="path-badge" class="path-badge">—</span>
+        </div>
+
+        <div class="toolbar-right">
+          <div class="lang-switch" role="group" aria-label="Language switch">
+            <button id="lang-zh" class="lang-button active">中文</button>
+            <button id="lang-en" class="lang-button">EN</button>
+          </div>
+          <button id="setup-button" class="button secondary" data-i18n="setupButton">初始化 iCloud</button>
+          <button id="refresh-button" class="button primary" data-i18n="refreshButton">刷新</button>
+          <button id="link-button" class="button secondary" data-i18n="linkButton">接入</button>
+          <button id="unlink-button" class="button secondary" data-i18n="unlinkButton">取消接入</button>
+          <button id="restore-button" class="button secondary" data-i18n="restoreButton">恢复备份</button>
+          <button id="open-root-button" class="button ghost" data-i18n="openRootButton">打开目录</button>
+        </div>
+      </header>
+
+      <nav id="tool-tabs" class="tool-tabs" aria-label="Tool tabs"></nav>
+
+      <main class="list-shell">
+        <section class="list-header">
+          <div>
+            <h2 id="current-tool-title">全局</h2>
+            <p id="current-tool-description" class="subtle">—</p>
+          </div>
+          <div class="list-meta">
+            <span id="status-text" class="subtle">—</span>
+            <span id="count-text" class="subtle">0</span>
+          </div>
+        </section>
+
+        <section class="table-shell">
+          <table class="skills-table">
+            <thead>
+              <tr>
+                <th data-i18n="nameColumn">名称</th>
+                <th data-i18n="pathColumn">路径</th>
+                <th data-i18n="updatedColumn">更新时间</th>
+                <th data-i18n="actionsColumn">操作</th>
+              </tr>
+            </thead>
+            <tbody id="skills-table-body"></tbody>
+          </table>
+          <div id="empty-state" class="empty-state" data-i18n="emptyState">这个分类下还没有 skill。</div>
+        </section>
+      </main>
+    </div>
+
+    <template id="skill-row-template">
+      <tr>
+        <td class="col-name">
+          <div class="skill-name"></div>
+          <div class="skill-kind"></div>
+        </td>
+        <td class="col-path">
+          <div class="skill-path"></div>
+        </td>
+        <td class="col-updated">
+          <div class="skill-updated"></div>
+        </td>
+        <td class="col-actions">
+          <div class="row-actions">
+            <button class="mini-button skill-open" data-i18n="openButton">打开</button>
+            <button class="mini-button skill-copy" data-i18n="copyButton">复制</button>
+            <button class="mini-button danger skill-delete" data-i18n="deleteButton">删除</button>
+          </div>
+        </td>
+      </tr>
+    </template>
+
+    <script type="module" src="./ui/app.js"></script>
+  </body>
+</html>

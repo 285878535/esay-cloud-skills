@@ -1,0 +1,114 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Skills Manager</title>
+    <link rel="stylesheet" href="./ui/styles.css" />
+  </head>
+  <body>
+    <div class="app-shell">
+      <header class="topbar">
+        <div class="brand">
+          <p class="eyebrow" data-i18n="brandEyebrow">Skills Hub</p>
+          <h1 data-i18n="brandTitle">Skills Manager</h1>
+          <p class="subtitle compact" data-i18n="brandSubtitle">按工具分类查看和管理 skills，第一栏是全局共享。</p>
+        </div>
+
+        <div class="topbar-actions">
+          <div class="lang-switch" role="group" aria-label="Language switch">
+            <button id="lang-zh" class="lang-button active">中文</button>
+            <button id="lang-en" class="lang-button">EN</button>
+          </div>
+          <button id="setup-button" class="button primary" data-i18n="setupButton">初始化 iCloud</button>
+          <button id="refresh-button" class="button secondary" data-i18n="refreshButton">刷新列表</button>
+          <button id="doctor-button" class="button secondary" data-i18n="doctorButton">检查问题</button>
+        </div>
+      </header>
+
+      <section class="meta-strip">
+        <div class="meta-card">
+          <span class="meta-key" data-i18n="rootLabel">当前 iCloud 根目录</span>
+          <span id="icloud-root" class="meta-value">—</span>
+        </div>
+        <div class="meta-card">
+          <span class="meta-key" data-i18n="currentToolEyebrow">当前分类</span>
+          <span id="current-tool-title">全局</span>
+        </div>
+        <div class="meta-card">
+          <span class="meta-key" data-i18n="statusLabel">状态</span>
+          <span id="tool-status-pill" class="pill muted">—</span>
+        </div>
+        <div class="meta-card">
+          <span class="meta-key" data-i18n="skillCountLabel">Skills 数量</span>
+          <span id="tool-skill-count">0</span>
+        </div>
+      </section>
+
+      <nav id="tool-tabs" class="tool-tabs" aria-label="Tool tabs"></nav>
+
+      <main class="main-layout">
+        <section class="content-panel">
+          <div class="panel-header dense">
+            <div>
+              <p id="current-tool-description" class="panel-note"></p>
+            </div>
+
+            <div class="panel-actions">
+              <button id="link-tool-button" class="button primary" data-i18n="linkButton">接入 iCloud</button>
+              <button id="unlink-tool-button" class="button secondary" data-i18n="unlinkButton">取消接入</button>
+              <button id="restore-tool-button" class="button ghost" data-i18n="restoreButton">恢复备份</button>
+              <button id="open-root-button" class="button ghost" data-i18n="openRootButton">打开当前分类目录</button>
+            </div>
+          </div>
+
+          <div class="skills-toolbar">
+            <div>
+              <p class="skills-toolbar-title" data-i18n="skillsListTitle">Skills 列表</p>
+              <p id="tool-root-path" class="skills-toolbar-note">—</p>
+            </div>
+          </div>
+
+          <div id="skills-list" class="skills-list"></div>
+        </section>
+
+        <aside class="side-panel">
+          <section class="panel">
+            <div class="panel-header compact">
+              <p class="eyebrow" data-i18n="doctorEyebrow">Doctor</p>
+              <h3 data-i18n="doctorTitle">问题面板</h3>
+            </div>
+            <div id="doctor-output" class="log empty" data-i18n="doctorEmpty">这里会显示检查结果。</div>
+          </section>
+
+          <section class="panel">
+            <div class="panel-header compact">
+              <p class="eyebrow" data-i18n="logEyebrow">Activity</p>
+              <h3 data-i18n="eventLogTitle">事件日志</h3>
+            </div>
+            <div id="event-log" class="log empty" data-i18n="eventLogEmpty">所有操作会记录在这里。</div>
+          </section>
+        </aside>
+      </main>
+    </div>
+
+      <template id="skill-row-template">
+      <article class="skill-row">
+        <div class="skill-main">
+          <div class="skill-title-row">
+            <h3 class="skill-name"></h3>
+            <span class="skill-kind"></span>
+          </div>
+          <p class="skill-path"></p>
+        </div>
+        <div class="skill-actions">
+          <button class="icon-button skill-open" title="open" data-i18n-title="openButton">打开</button>
+          <button class="icon-button skill-copy" title="copy" data-i18n-title="copyButton">复制</button>
+          <button class="icon-button danger skill-delete" title="delete" data-i18n-title="deleteButton">删除</button>
+        </div>
+      </article>
+    </template>
+
+    <script type="module" src="./ui/app.js"></script>
+  </body>
+</html>
