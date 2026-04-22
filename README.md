@@ -1,16 +1,37 @@
-# Skills Manager
+# Esay Cloud Skills
 
-`skills-manager` is a small macOS-first CLI that helps you keep AI tool skills in one iCloud-backed location and wire local tool folders to that shared source with symlinks.
+[English](#english) | [中文](#chinese)
 
-It currently supports a practical MVP for:
+---
 
-- Codex
-- Claude Code
-- Antigravity
-- A shared global skills directory
+<a name="english"></a>
+## English
+
+`esay-cloud-skills` is a macOS-first CLI and Desktop app that helps you manage AI tool skills in one iCloud-backed location and wires local tool folders to that shared source via symlinks.
+
+It currently supports (each has its own iCloud subfolder; see table below):
+- A shared **global** category, plus **Codex**, **Claude Code**, **Cursor**, **Antigravity**
+- **OpenCode**, **OpenClaw**, and **Hermes** (Nous Research Hermes Agent)
 - A Tauri desktop shell for macOS
 
-## What It Does
+### Skill categories (CLI `target` keys)
+
+Each **category** maps a CLI target name, one iCloud subfolder under your `AI-Skills` root, and the default local path(s) the app looks for first. Use the **Key** in commands such as `link <key>` and `list-skills <key>`. (Paths follow each product’s public docs as of 2025–2026.)
+
+| Key | Product | Role | Default local path(s) | iCloud folder |
+| --- | --- | --- | --- | --- |
+| `global` | (shared) | Cross-tool or generic agent skills | `~/.agent/skills` | `…/AI-Skills/global` |
+| `codex` | OpenAI Codex | Codex-only skills | `~/.codex/skills` | `…/AI-Skills/codex` |
+| `claude` | Claude Code | Claude Code–only skills | `~/.claude/skills` (tries `~/.claude-code/…` and `~/.config/claude-code/…` as alternates) | `…/AI-Skills/claude-code` |
+| `antigravity` | Antigravity | Antigravity-only skills | `~/.antigravity/skills` (or `~/.config/antigravity/…`) | `…/AI-Skills/antigravity` |
+| `cursor` | Cursor | Cursor user-level skills | `~/.cursor/skills`, or `~/.agents/skills` if present | `…/AI-Skills/cursor` |
+| `opencode` | [OpenCode](https://opencode.ai/docs/skills) | OpenCode user-level skills | `~/.config/opencode/skills` | `…/AI-Skills/opencode` |
+| `openclaw` | [OpenClaw](https://docs.openclaw.ai/tools/skills) | Managed / local override skills | `~/.openclaw/skills` (OpenClaw also reads `~/.agents/skills` with different precedence) | `…/AI-Skills/openclaw` |
+| `hermes` | [Hermes Agent](https://hermes-agent.nousresearch.com/docs/user-guide/features/skills/) | Main Hermes skills tree | `~/.hermes/skills` | `…/AI-Skills/hermes` |
+
+`all` is accepted where the CLI allows it (e.g. `list-skills all`, `link all`). Run `esay-cloud-skills help` for the current `<target|all>` list; it is generated from `src/config.js`.
+
+### What It Does
 
 - Detects common local skills directories
 - Creates a shared iCloud storage layout
@@ -19,34 +40,7 @@ It currently supports a practical MVP for:
 - Verifies that links still point at the expected destination
 - Reports missing paths, broken links, and unmanaged folders
 
-## Storage Layout
-
-By default, the shared iCloud root is:
-
-`~/Library/Mobile Documents/com~apple~CloudDocs/AI-Skills`
-
-Inside that root, the tool creates:
-
-- `global/`
-- `codex/`
-- `claude-code/`
-- `antigravity/`
-
-## Supported Local Paths
-
-The CLI scans a conservative set of common locations:
-
-- `~/.codex/skills`
-- `~/.agent/skills`
-- `~/.claude/skills`
-- `~/.claude-code/skills`
-- `~/.config/claude-code/skills`
-- `~/.antigravity/skills`
-- `~/.config/antigravity/skills`
-
-You can also add custom paths in the config file after the first run.
-
-## Usage
+### Usage (CLI)
 
 Run directly with Node:
 
@@ -59,22 +53,9 @@ node ./src/cli.js unlink codex
 node ./src/cli.js restore codex
 ```
 
-Or make it executable and use the binary name:
+### Desktop App
 
-```bash
-chmod +x ./src/cli.js
-./src/cli.js scan
-```
-
-## Desktop App
-
-The project now includes a Tauri desktop shell in [src-tauri/src/main.rs](/Users/jiaxingxing/Documents/New%20project/src-tauri/src/main.rs:1) with a static frontend in:
-
-- [index.html](/Users/jiaxingxing/Documents/New%20project/index.html:1)
-- [ui/app.js](/Users/jiaxingxing/Documents/New%20project/ui/app.js:1)
-- [ui/styles.css](/Users/jiaxingxing/Documents/New%20project/ui/styles.css:1)
-
-To run the desktop app in development:
+The project includes a Tauri desktop shell. To run the desktop app in development:
 
 ```bash
 npm install
@@ -87,83 +68,92 @@ To build a macOS app bundle:
 npm run tauri:build
 ```
 
-Right now the Tauri backend calls the existing Node CLI under the hood, which keeps the app logic shared with the terminal workflow.
+### Commands
+- `scan`: Detects known local paths and shows their status.
+- `setup`: Initializes the config file and shared iCloud directory structure.
+- `link <target> [--copy]`: Replaces the local folder with a symlink into iCloud. **By default** (no flag) the app **moves** your existing local skills directory into the iCloud path with a single `rename` on the same volume—**no full-file duplicate** (like Finder “move”). Use **`--copy`** only if you want the old behavior: copy into iCloud and keep a `…/skills.backup-*` folder (enables `restore` to that backup). If local and iCloud are on **different volumes**, a one-time copy is still required; the temporary backup is then removed to avoid double disk use.
+- `unlink <target>`: Removes the managed symlink for a target and recreates an empty local directory.
+- `restore <target>`: Restores the most recent pre-link backup back to the local path.
+- `restore-machine`: Restores this machine from the shared iCloud layout.
+- `doctor`: Checks the current setup for missing paths, broken symlinks, etc.
+- `list-skills <target>`: Lists all skills in a specific target or all targets.
+- `delete-skill <tool> <skill-name>`: Deletes a specific skill.
+- `copy-skill <source-tool> <skill-name> <target-tool> [target-name]`: Copies a skill to another tool category.
 
-## Commands
+---
 
-### `scan`
+<a name="chinese"></a>
+## 中文
 
-Detects known local paths and shows which ones exist, are missing, or are already symlinked.
+`esay-cloud-skills` 是一个优先支持 macOS 的 CLI 和桌面应用，它可以帮助你将各个 AI 工具的 skills 管理在一个基于 iCloud 的统一位置，并通过软链接将本地的工具文件夹与该共享位置打通。
 
-### `setup`
+目前支持以下工具和特性（各分类有独立 iCloud 子目录，见下表）：
+- 全局 **global**、**Codex**、**Claude Code**、**Cursor**、**Antigravity**
+- **OpenCode**、**OpenClaw**、**Hermes**（Nous Research Hermes Agent）
+- 提供 macOS 版本的 Tauri 桌面界面
 
-Initializes the config file and shared iCloud directory structure.
+### 技能分类（CLI 中的 `target`）
 
-### `link <target>`
+每个 **分类** 对应一个 CLI 的 target 名、iCloud 下 `AI-Skills` 的子目录名，以及应用会优先检测的本地路径。以下 **Key** 用于 `link <key>`、`list-skills <key>` 等命令。路径与各产品公开文档一致（约 2025–2026）。
 
-Migrates a target directory into iCloud and replaces the local folder with a symlink.
+| Key | 产品 | 作用 | 默认会检测的本地路径 | iCloud 中目录名 |
+| --- | --- | --- | --- | --- |
+| `global` | 通用 / 多工具 | 不绑定单一产品的共享 skills | `~/.agent/skills` | `…/AI-Skills/global` |
+| `codex` | Codex | 仅给 Codex 用 | `~/.codex/skills` | `…/AI-Skills/codex` |
+| `claude` | Claude Code | 仅给 Claude Code 用 | 优先 `~/.claude/skills`，也尝试 `~/.claude-code/…` 与 `~/.config/claude-code/…` | `…/AI-Skills/claude-code` |
+| `antigravity` | Antigravity | 仅给 Antigravity 用 | `~/.antigravity/skills`（或 `~/.config/antigravity/…`） | `…/AI-Skills/antigravity` |
+| `cursor` | Cursor | Cursor 用户级 skills | `~/.cursor/skills`，或存在时 `~/.agents/skills` | `…/AI-Skills/cursor` |
+| `opencode` | [OpenCode](https://opencode.ai/docs/skills) | OpenCode 用户级 skills | `~/.config/opencode/skills` | `…/AI-Skills/opencode` |
+| `openclaw` | [OpenClaw](https://docs.openclaw.ai/tools/skills) | OpenClaw 托管 / 本机覆写用 skills | `~/.openclaw/skills`（与 `~/.agents/skills` 共存，优先级以官方文档为准） | `…/AI-Skills/openclaw` |
+| `hermes` | [Hermes Agent](https://hermes-agent.nousresearch.com/docs/user-guide/features/skills/) | Hermes 主 skills 目录 | `~/.hermes/skills` | `…/AI-Skills/hermes` |
 
-Targets:
+在支持 `all` 的命令中可使用 `all` 表示全体分类（如 `list-skills all`、`link all`）。完整 target 列表以 `esay-cloud-skills help` 与 `src/config.js` 为准。
 
-- `global`
-- `codex`
-- `claude`
-- `antigravity`
-- `all`
+### 核心功能
 
-### `doctor`
+- 自动检测常见的本地 skills 目录
+- 在 iCloud 中创建共享的存储结构
+- 将现有的本地 skills 文件夹迁移至 iCloud
+- 使用软链接替换本地的真实目录
+- 校验现有链接是否正确指向目标位置
+- 扫描并报告丢失的路径、损坏的链接以及未接管的真实文件夹
 
-Checks the current setup for:
+### CLI 使用方法
 
-- missing iCloud targets
-- broken symlinks
-- unmanaged real directories
-- disabled tools in config
+使用 Node 直接运行：
 
-### Desktop UI
+```bash
+node ./src/cli.js scan
+node ./src/cli.js setup
+node ./src/cli.js doctor
+node ./src/cli.js link codex
+node ./src/cli.js unlink codex
+node ./src/cli.js restore codex
+```
 
-The app provides:
+### 桌面端应用
 
-- an overview card for each tool target
-- one-click `setup`, `scan`, `doctor`
-- one-click `link`, `unlink`, `restore` per tool
-- bulk actions for all tools
-- a doctor panel and activity log
+本项目包含一个 Tauri 桌面壳。在开发环境中运行桌面端：
 
-### `unlink <target>`
+```bash
+npm install
+npm run tauri:dev
+```
 
-Removes the managed symlink for a target and recreates an empty local directory so the tool can run without the shared link.
+打包构建 macOS 应用：
 
-This does not delete the iCloud copy.
+```bash
+npm run tauri:build
+```
 
-### `restore <target>`
-
-Restores the most recent pre-link backup back to the local path.
-
-This is useful if you want to undo a migration and go back to the original local folder content.
-
-## Config
-
-The config file lives at:
-
-`~/.skills-manager/config.json`
-
-It stores:
-
-- iCloud root
-- enabled tools
-- local path candidates
-- preferred target mapping
-
-## Safety
-
-When `link` migrates an existing real directory, it first moves it to a timestamped backup next to the original folder before creating the symlink.
-
-`restore` only restores from the recorded backup path stored in `~/.skills-manager/config.json`, and it refuses to overwrite a non-empty local directory.
-
-## Notes
-
-- This tool is designed for macOS and assumes iCloud Drive is enabled.
-- If multiple Macs edit the same skill at once, iCloud may create conflict copies.
-- Some tools may require restart after relinking their skills directory.
-- The current desktop app scaffold expects `node` to be available on the machine because it reuses the CLI for backend actions.
+### 命令一览
+- `scan`: 检测已知的本地路径并显示其当前状态。
+- `setup`: 初始化配置文件及 iCloud 共享目录结构。
+- `link <target> [--copy]`：把本地路径改为指向 iCloud 的软链接。**默认**（不加参数）在本机与 iCloud 在同一磁盘时，用**整目录移动**（`rename`）进 iCloud，**不会把整份数据再复制一份**；需要旧版「复制到 iCloud + 保留 `…/skills.backup-*` 以便 `restore`」时，请加 **`--copy`**。若本机与 iCloud 不在同一卷，仍可能需一次复制，复制后会删掉临时目录以免长期占双倍空间。
+- `unlink <target>`: 移除指定工具的软链接，并在本地重新创建一个空文件夹。
+- `restore <target>`: 将最后一次建立链接前的备份恢复到本地路径。
+- `restore-machine`: 根据 iCloud 中的共享结构恢复当前机器的技能目录。
+- `doctor`: 检查当前配置是否存在问题（如路径缺失、链接损坏等）。
+- `list-skills <target>`: 列出特定目标或所有目标中的所有 skills。
+- `delete-skill <tool> <skill-name>`: 删除某个特定的 skill。
+- `copy-skill <source-tool> <skill-name> <target-tool> [target-name]`: 将一个 skill 复制到其他工具分类下。

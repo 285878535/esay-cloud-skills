@@ -1,8 +1,8 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "Skills Manager",
+  "productName": "Esay Cloud Skills",
   "version": "0.1.0",
-  "identifier": "com.jiaxingxing.skills-manager",
+  "identifier": "com.jiaxingxing.esay-cloud-skills",
   "build": {
     "beforeDevCommand": "",
     "beforeBuildCommand": "",
@@ -13,7 +13,7 @@
     "windows": [
       {
         "label": "main",
-        "title": "Skills Manager",
+        "title": "Esay Cloud Skills",
         "width": 1360,
         "height": 920,
         "resizable": true

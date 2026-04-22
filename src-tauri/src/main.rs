@@ -1,7 +1,12 @@
+use notify::{Config, Event, RecommendedWatcher, RecursiveMode, Watcher};
 use serde::Serialize;
 use serde_json::Value;
 use std::path::{Path, PathBuf};
 use std::process::Command;
+use std::sync::Mutex;
+use std::time::{Duration, Instant};
+use tauri::AppHandle;
+use tauri::Emitter;
 
 #[derive(Serialize)]
 struct ScanResponse {
@@ -22,6 +27,20 @@ struct ActionResponse {
 #[derive(Serialize)]
 struct SkillsResponse {
     results: Vec<Value>,
+}
+
+struct WatchState {
+    path: Option<String>,
+    _watcher: Option<RecommendedWatcher>,
+}
+
+impl Default for WatchState {
+    fn default() -> Self {
+        Self {
+            path: None,
+            _watcher: None,
+        }
+    }
 }
 
 fn project_root() -> PathBuf {
@@ -45,11 +64,11 @@ fn run_cli(args: &[&str]) -> Result<Value, String> {
     let stderr = String::from_utf8_lossy(&output.stderr).trim().to_string();
 
     if stdout.is_empty() {
-      return Err(if stderr.is_empty() {
-        "CLI returned no output.".to_string()
-      } else {
-        stderr
-      });
+        return Err(if stderr.is_empty() {
+            "CLI returned no output.".to_string()
+        } else {
+            stderr
+        });
     }
 
     let parsed: Value =
@@ -64,12 +83,73 @@ fn run_cli(args: &[&str]) -> Result<Value, String> {
         let message = parsed
             .get("error")
             .and_then(Value::as_str)
-            .map(ToOwned::to_owned)
+            .map(str::to_string)
             .unwrap_or_else(|| "Unknown CLI error.".to_string());
         return Err(message);
     }
 
     Ok(parsed)
+}
+
+/// Watch the current skills root for changes and emit `skills-refresh` so the UI can reload the list.
+/// FSEvents may fire in bursts; debounce is applied before emitting. Does not "sync" to iCloud — with a normal `link` symlink, writes already live under the iCloud Drive folder; this only refreshes the in-app list.
+#[tauri::command]
+fn set_skills_watch(
+    app: AppHandle,
+    state: tauri::State<'_, Mutex<WatchState>>,
+    path: Option<String>,
+) -> Result<(), String> {
+    let path_norm = path
+        .map(|p| p.trim().to_string())
+        .filter(|p| !p.is_empty() && p != "—");
+
+    let mut guard = state.lock().map_err(|e| e.to_string())?;
+
+    if guard.path == path_norm && (path_norm.is_none() == guard._watcher.is_none()) {
+        return Ok(());
+    }
+
+    guard._watcher = None;
+    guard.path = path_norm.clone();
+
+    let Some(p_str) = path_norm else {
+        return Ok(());
+    };
+
+    let pbuf = PathBuf::from(&p_str);
+    if !pbuf.is_dir() {
+        return Ok(());
+    }
+
+    let app2 = app.clone();
+    let last_emit = Mutex::new(Instant::now() - Duration::from_secs(60));
+
+    let mut w = RecommendedWatcher::new(
+        move |res: std::result::Result<Event, notify::Error>| {
+            if res.is_err() {
+                return;
+            }
+            let mut last = match last_emit.lock() {
+                Ok(m) => m,
+                Err(_) => return,
+            };
+            let now = Instant::now();
+            if now.saturating_duration_since(*last) < Duration::from_millis(800) {
+                return;
+            }
+            *last = now;
+            drop(last);
+            let _ = app2.emit("skills-refresh", ());
+        },
+        Config::default(),
+    )
+    .map_err(|e| format!("Watcher init failed: {e}"))?;
+
+    w.watch(Path::new(&p_str), RecursiveMode::Recursive)
+        .map_err(|e| format!("Watcher watch failed: {e}"))?;
+    guard._watcher = Some(w);
+
+    Ok(())
 }
 
 #[tauri::command]
@@ -97,6 +177,7 @@ fn run_action(action: String, target: String) -> Result<ActionResponse, String> 
     let args: Vec<&str> = match action.as_str() {
         "setup" => vec!["setup"],
         "doctor" => vec!["doctor"],
+        "restore-machine" => vec!["restore-machine"],
         "link" | "unlink" | "restore" => vec![action.as_str(), target.as_str()],
         _ => return Err(format!("Unsupported action: {action}")),
     };
@@ -200,14 +281,16 @@ fn reveal_in_finder(path: String) -> Result<ActionResponse, String> {
 
 fn main() {
     tauri::Builder::default()
+        .manage(Mutex::new(WatchState::default()))
         .invoke_handler(tauri::generate_handler![
             scan,
             run_action,
             list_skills,
             delete_skill,
             copy_skill,
-            reveal_in_finder
+            reveal_in_finder,
+            set_skills_watch
         ])
         .run(tauri::generate_context!())
-        .expect("error while running Skills Manager");
+        .expect("error while running Esay Cloud Skills");
 }

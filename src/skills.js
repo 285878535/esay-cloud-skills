@@ -63,6 +63,10 @@ async function countEntries(targetPath) {
   return count;
 }
 
+async function hasEntries(targetPath) {
+  return (await countEntries(targetPath)) > 0;
+}
+
 function resolveTool(config, toolName) {
   const tool = config.tools[toolName];
 
@@ -115,6 +119,18 @@ async function backupDirectory(localPath) {
   return backupPath;
 }
 
+/**
+ * @param {string} dirPath
+ * @returns {Promise<boolean>} true if directory exists and has at least one entry
+ */
+async function isNonEmptyDirectory(dirPath) {
+  const p = await pathInfo(dirPath);
+  if (!p.isDirectory) {
+    return false;
+  }
+  return (await countEntries(dirPath)) > 0;
+}
+
 function updateToolState(tool, values) {
   tool.state = {
     ...tool.state,
@@ -132,12 +148,17 @@ async function resolveToolPaths(config, toolName) {
   let activePath = null;
   let source = "missing";
 
-  if (iCloudInfo.isDirectory) {
-    activePath = iCloudPath;
-    source = "icloud";
-  } else if (localInfo.isDirectory || localInfo.isSymbolicLink) {
+  if (localInfo.isSymbolicLink) {
+    const currentTarget = await readlink(localPath);
+    const resolvedTarget = path.resolve(path.dirname(localPath), currentTarget);
+    activePath = resolvedTarget;
+    source = resolvedTarget === iCloudPath ? "icloud" : "local";
+  } else if (localInfo.isDirectory) {
     activePath = localPath;
     source = "local";
+  } else if (iCloudInfo.isDirectory) {
+    activePath = iCloudPath;
+    source = "icloud";
   }
 
   return {
@@ -292,7 +313,12 @@ export async function copySkill(config, sourceToolName, skillName, targetToolNam
   };
 }
 
-export async function linkTarget(config, toolName) {
+/**
+ * @param {{ dataMode?: "move" | "copy" }} [options] `move` (default): move local data into the iCloud folder with `rename` when on the same volume (no full-file copy). `copy`: always copy, keep a .backup-… duplicate like before.
+ */
+export async function linkTarget(config, toolName, options = {}) {
+  const dataMode = options.dataMode === "copy" ? "copy" : "move";
+
   const tool = resolveTool(config, toolName);
 
   if (!tool.enabled) {
@@ -328,6 +354,60 @@ export async function linkTarget(config, toolName) {
   if (info.isDirectory) {
     const backupPath = await backupDirectory(localPath);
     await ensureNoConflicts(backupPath, iCloudPath);
+
+    if (dataMode === "move") {
+      if (await isNonEmptyDirectory(iCloudPath)) {
+        await cp(backupPath, iCloudPath, { recursive: true });
+        await rm(backupPath, { recursive: true, force: true });
+        await symlink(iCloudPath, localPath);
+        updateToolState(tool, {
+          lastLinkedPath: localPath,
+          lastBackupPath: null,
+          lastICloudPath: iCloudPath,
+          lastLinkedAt: new Date().toISOString(),
+        });
+        return {
+          tool: toolName,
+          message: `Merged your local skills into the existing iCloud directory (iCloud was not empty), then linked. No duplicate backup was kept in your home directory.`,
+        };
+      }
+
+      await rm(iCloudPath, { recursive: true, force: true });
+      try {
+        await rename(backupPath, iCloudPath);
+      } catch (error) {
+        if (error && error.code === "EXDEV") {
+          await ensureDirectory(iCloudPath);
+          await cp(backupPath, iCloudPath, { recursive: true });
+          await rm(backupPath, { recursive: true, force: true });
+          await symlink(iCloudPath, localPath);
+          updateToolState(tool, {
+            lastLinkedPath: localPath,
+            lastBackupPath: null,
+            lastICloudPath: iCloudPath,
+            lastLinkedAt: new Date().toISOString(),
+          });
+          return {
+            tool: toolName,
+            message: `Linked after copying: local and iCloud live on different volumes, so a one-time copy was required (the temporary backup folder was then removed to avoid double disk use).`,
+          };
+        }
+        throw error;
+      }
+
+      await symlink(iCloudPath, localPath);
+      updateToolState(tool, {
+        lastLinkedPath: localPath,
+        lastBackupPath: null,
+        lastICloudPath: iCloudPath,
+        lastLinkedAt: new Date().toISOString(),
+      });
+      return {
+        tool: toolName,
+        message: `Moved the existing directory into iCloud in place and linked (no full duplicate copy; same as Finder move on one disk). Unlink/restore from “last backup” is not available for this link.`,
+      };
+    }
+
     await cp(backupPath, iCloudPath, { recursive: true });
     await symlink(iCloudPath, localPath);
     updateToolState(tool, {
@@ -338,7 +418,7 @@ export async function linkTarget(config, toolName) {
     });
     return {
       tool: toolName,
-      message: `Copied existing directory to iCloud, linked it, and kept a backup at ${backupPath}.`,
+      message: `Copied existing directory to iCloud (--copy), linked it, and kept a backup at ${backupPath}.`,
     };
   }
 
@@ -354,11 +434,94 @@ export async function linkTarget(config, toolName) {
   };
 }
 
-export async function linkAllTargets(config) {
+/**
+ * @param {{ dataMode?: "move" | "copy" }} [options]
+ */
+export async function linkAllTargets(config, options = {}) {
   const results = [];
 
   for (const toolName of Object.keys(config.tools)) {
-    results.push(await linkTarget(config, toolName));
+    results.push(await linkTarget(config, toolName, options));
+  }
+
+  return results;
+}
+
+export async function relinkTargetFromICloud(config, toolName) {
+  const tool = resolveTool(config, toolName);
+  const localPath = await pickLocalPath(tool);
+  const iCloudPath = getICloudPath(config, tool);
+  const localInfo = await pathInfo(localPath);
+  const iCloudInfo = await pathInfo(iCloudPath);
+
+  if (!iCloudInfo.isDirectory) {
+    return {
+      tool: toolName,
+      message: `Skipped because iCloud directory does not exist: ${iCloudPath}`,
+    };
+  }
+
+  await ensureParent(localPath);
+
+  if (localInfo.isSymbolicLink) {
+    const currentTarget = await readlink(localPath);
+    const resolvedTarget = path.resolve(path.dirname(localPath), currentTarget);
+    if (resolvedTarget === iCloudPath) {
+      return {
+        tool: toolName,
+        message: "Already linked to the shared iCloud directory.",
+      };
+    }
+
+    throw new Error(`Refusing to relink ${localPath} because it already points to ${resolvedTarget}.`);
+  }
+
+  if (localInfo.isDirectory) {
+    if (await isEmptyDirectory(localPath)) {
+      await rm(localPath, { recursive: true, force: true });
+      await symlink(iCloudPath, localPath);
+      updateToolState(tool, {
+        lastLinkedPath: localPath,
+        lastICloudPath: iCloudPath,
+        lastLinkedAt: new Date().toISOString(),
+      });
+      return {
+        tool: toolName,
+        message: `Linked empty local directory to iCloud: ${localPath}`,
+      };
+    }
+
+    const backupPath = await backupDirectory(localPath);
+    await symlink(iCloudPath, localPath);
+    updateToolState(tool, {
+      lastLinkedPath: localPath,
+      lastBackupPath: backupPath,
+      lastICloudPath: iCloudPath,
+      lastLinkedAt: new Date().toISOString(),
+    });
+    return {
+      tool: toolName,
+      message: `Backed up local directory to ${backupPath} and linked ${localPath} to iCloud.`,
+    };
+  }
+
+  await symlink(iCloudPath, localPath);
+  updateToolState(tool, {
+    lastLinkedPath: localPath,
+    lastICloudPath: iCloudPath,
+    lastLinkedAt: new Date().toISOString(),
+  });
+  return {
+    tool: toolName,
+    message: `Linked missing local path to iCloud: ${localPath}`,
+  };
+}
+
+export async function relinkAllFromICloud(config) {
+  const results = [];
+
+  for (const toolName of Object.keys(config.tools)) {
+    results.push(await relinkTargetFromICloud(config, toolName));
   }
 
   return results;

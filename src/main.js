@@ -1,8 +1,8 @@
 import {
   createDefaultConfig,
   ensureConfig,
+  getCliTargetAlts,
   getConfigPath,
-  loadConfig,
   saveConfig,
 } from "./config.js";
 import {
@@ -14,6 +14,7 @@ import {
   linkTarget,
   listAllSkills,
   listSkills,
+  relinkAllFromICloud,
   restoreAllTargets,
   restoreTarget,
   runDoctor,
@@ -22,20 +23,22 @@ import {
 } from "./skills.js";
 
 function printHelp() {
-  console.log(`skills-manager
+  const targets = getCliTargetAlts();
+  console.log(`esay-cloud-skills
 
 Usage:
-  skills-manager scan
-  skills-manager setup
-  skills-manager link <global|codex|claude|antigravity|all>
-  skills-manager unlink <global|codex|claude|antigravity|all>
-  skills-manager restore <global|codex|claude|antigravity|all>
-  skills-manager list-skills <global|codex|claude|antigravity|all>
-  skills-manager delete-skill <tool> <skill-name>
-  skills-manager copy-skill <source-tool> <skill-name> <target-tool> [target-name]
-  skills-manager doctor
-  skills-manager config-path
-  skills-manager help
+  esay-cloud-skills scan
+  esay-cloud-skills setup
+  esay-cloud-skills link <${targets}> [--copy]
+  esay-cloud-skills unlink <${targets}>
+  esay-cloud-skills restore <${targets}>
+  esay-cloud-skills restore-machine
+  esay-cloud-skills list-skills <${targets}>
+  esay-cloud-skills delete-skill <tool> <skill-name>
+  esay-cloud-skills copy-skill <source-tool> <skill-name> <target-tool> [target-name]
+  esay-cloud-skills doctor
+  esay-cloud-skills config-path
+  esay-cloud-skills help
 `);
 }
 
@@ -46,6 +49,28 @@ function parseArgv(argv) {
     argv: normalized,
     json,
   };
+}
+
+/** Parses args after the \`link\` command, e.g. \`['codex', '--copy']\`. Default \`dataMode\` is \`move\` (rename into iCloud, no full duplicate on same volume). */
+function parseLinkArgv(argsAfterCommand) {
+  let dataMode = "move";
+  const positional = [];
+
+  for (const a of argsAfterCommand) {
+    if (a === "--copy" || a === "-c") {
+      dataMode = "copy";
+    } else if (a === "--move" || a === "-m") {
+      dataMode = "move";
+    } else if (a.startsWith("-")) {
+      throw new Error(
+        `Unknown link option: ${a}. Use --copy to keep a .backup-… copy and full duplicate, or default move (no extra copy on same volume).`,
+      );
+    } else {
+      positional.push(a);
+    }
+  }
+
+  return { target: positional[0] ?? null, dataMode };
 }
 
 function emit(value, json) {
@@ -133,12 +158,14 @@ export async function run(argv) {
       const config = await ensureConfig();
       await ensureICloudLayout(config);
 
-      if (!arg) {
-        throw new Error("Missing target. Use link <global|codex|claude|antigravity|all>.");
+      const { target, dataMode } = parseLinkArgv(parsed.argv.slice(1));
+
+      if (!target) {
+        throw new Error(`Missing target. Use link <${getCliTargetAlts()}> [--copy].`);
       }
 
-      if (arg === "all") {
-        const results = await linkAllTargets(config);
+      if (target === "all") {
+        const results = await linkAllTargets(config, { dataMode });
         const payload = {
           message: "Completed link all.",
           results,
@@ -153,7 +180,7 @@ export async function run(argv) {
         return;
       }
 
-      const result = await linkTarget(config, arg);
+      const result = await linkTarget(config, target, { dataMode });
       emit(result, parsed.json);
       if (!parsed.json) {
         console.log(`[${result.tool}] ${result.message}`);
@@ -165,7 +192,7 @@ export async function run(argv) {
       const config = await ensureConfig();
 
       if (!arg) {
-        throw new Error("Missing target. Use unlink <global|codex|claude|antigravity|all>.");
+        throw new Error(`Missing target. Use unlink <${getCliTargetAlts()}>.`);
       }
 
       if (arg === "all") {
@@ -196,7 +223,7 @@ export async function run(argv) {
       const config = await ensureConfig();
 
       if (!arg) {
-        throw new Error("Missing target. Use restore <global|codex|claude|antigravity|all>.");
+        throw new Error(`Missing target. Use restore <${getCliTargetAlts()}>.`);
       }
 
       if (arg === "all") {
@@ -223,6 +250,23 @@ export async function run(argv) {
       await saveConfig(config);
       return;
     }
+    case "restore-machine": {
+      const config = await ensureConfig();
+      await ensureICloudLayout(config);
+      const results = await relinkAllFromICloud(config);
+      const payload = {
+        message: "Restored this machine from the shared iCloud layout.",
+        results,
+      };
+      emit(payload, parsed.json);
+      if (!parsed.json) {
+        for (const result of results) {
+          console.log(`[${result.tool}] ${result.message}`);
+        }
+      }
+      await saveConfig(config);
+      return;
+    }
     case "doctor": {
       const config = await ensureConfig();
       const report = await runDoctor(config);
@@ -239,7 +283,7 @@ export async function run(argv) {
       const config = await ensureConfig();
 
       if (!arg) {
-        throw new Error("Missing target. Use list-skills <global|codex|claude|antigravity|all>.");
+        throw new Error(`Missing target. Use list-skills <${getCliTargetAlts()}>.`);
       }
 
       if (arg === "all") {

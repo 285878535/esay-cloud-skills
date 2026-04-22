@@ -3,14 +3,14 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Skills Manager</title>
+    <title>Esay Cloud Skills</title>
     <link rel="stylesheet" href="./ui/styles.css" />
   </head>
   <body>
     <div class="app-shell">
       <header class="toolbar">
         <div class="toolbar-left">
-          <h1 data-i18n="title">Skills Manager</h1>
+          <h1 data-i18n="title">Esay Cloud Skills</h1>
           <span id="path-badge" class="path-badge">—</span>
         </div>
 
@@ -19,12 +19,19 @@
             <button id="lang-zh" class="lang-button active">中文</button>
             <button id="lang-en" class="lang-button">EN</button>
           </div>
-          <button id="setup-button" class="button secondary" data-i18n="setupButton">初始化 iCloud</button>
-          <button id="refresh-button" class="button primary" data-i18n="refreshButton">刷新</button>
-          <button id="link-button" class="button secondary" data-i18n="linkButton">接入</button>
-          <button id="unlink-button" class="button secondary" data-i18n="unlinkButton">取消接入</button>
-          <button id="restore-button" class="button secondary" data-i18n="restoreButton">恢复备份</button>
-          <button id="open-root-button" class="button ghost" data-i18n="openRootButton">打开目录</button>
+          <button id="refresh-button" class="button primary" data-i18n="refreshButton" data-i18n-title="refreshHelp">刷新</button>
+          <button id="open-local-button" class="button secondary" data-i18n="openLocalButton" data-i18n-title="openLocalHelp">打开本地目录</button>
+          <button id="open-icloud-button" class="button secondary" data-i18n="openICloudButton" data-i18n-title="openICloudHelp">打开 iCloud 目录</button>
+          <div class="more-menu">
+            <button id="more-button" class="button ghost" data-i18n="moreButton" data-i18n-title="moreHelp">更多</button>
+            <div id="more-panel" class="more-panel hidden">
+              <button id="link-button" class="menu-item" data-i18n="linkButton" data-i18n-title="linkHelp">接入</button>
+              <button id="unlink-button" class="menu-item" data-i18n="unlinkButton" data-i18n-title="unlinkHelp">取消接入</button>
+              <button id="restore-button" class="menu-item" data-i18n="restoreButton" data-i18n-title="restoreHelp">恢复备份</button>
+              <button id="setup-button" class="menu-item" data-i18n="setupButton" data-i18n-title="setupHelp">初始化 iCloud</button>
+              <button id="restore-machine-button" class="menu-item" data-i18n="restoreMachineButton" data-i18n-title="restoreMachineHelp">恢复本机环境</button>
+            </div>
+          </div>
         </div>
       </header>
 
@@ -32,9 +39,10 @@
 
       <main class="list-shell">
         <section class="list-header">
-          <div>
+          <div class="list-header-text">
             <h2 id="current-tool-title">全局</h2>
-            <p id="current-tool-description" class="subtle">—</p>
+            <p id="current-tool-description" class="list-desc">—</p>
+            <p id="sync-hint" class="sync-hint" hidden>—</p>
           </div>
           <div class="list-meta">
             <span id="status-text" class="subtle">—</span>
@@ -73,9 +81,9 @@
         </td>
         <td class="col-actions">
           <div class="row-actions">
-            <button class="mini-button skill-open" data-i18n="openButton">打开</button>
-            <button class="mini-button skill-copy" data-i18n="copyButton">复制</button>
-            <button class="mini-button danger skill-delete" data-i18n="deleteButton">删除</button>
+            <button class="mini-button skill-open" data-i18n="openButton" data-i18n-title="openButtonHelp">打开</button>
+            <button class="mini-button skill-copy" data-i18n="copyButton" data-i18n-title="copyButtonHelp">复制</button>
+            <button class="mini-button danger skill-delete" data-i18n="deleteButton" data-i18n-title="deleteButtonHelp">删除</button>
           </div>
         </td>
       </tr>

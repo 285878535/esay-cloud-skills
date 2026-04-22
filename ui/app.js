@@ -24,12 +24,22 @@ const elements = {
   enButton: document.querySelector("#lang-en"),
 };
 
-const TOOL_ORDER = ["global", "codex", "claude", "antigravity"];
+// Order matches src/config.js `createDefaultConfig().tools` (≈ getToolKeys).
+const TOOL_ORDER = [
+  "global",
+  "codex",
+  "claude",
+  "antigravity",
+  "cursor",
+  "opencode",
+  "openclaw",
+  "hermes",
+];
 
 const translations = {
   zh: {
     brandEyebrow: "Skills Hub",
-    brandTitle: "Skills Manager",
+    brandTitle: "Esay Cloud Skills",
     brandSubtitle: "按工具分类查看和管理 skills，第一栏是全局共享。",
     setupButton: "初始化 iCloud",
     refreshButton: "刷新列表",
@@ -59,16 +69,24 @@ const translations = {
     noValue: "—",
     healthy: "状态正常：没有发现问题。",
     toolDescriptions: {
-      global: "这里放所有工具都能共用的 skills。",
+      global: "这里放所有工具都能共用的 skills（如 ~/.agent/skills）。",
       codex: "这里放只给 Codex 用的 skills。",
       claude: "这里放只给 Claude Code 用的 skills。",
       antigravity: "这里放只给 Antigravity 用的 skills。",
+      cursor: "这里放只给 Cursor 用的用户级 skills（~/.cursor/skills 等）。",
+      opencode: "只给 OpenCode 用的全局 skills（~/.config/opencode/skills）。",
+      openclaw: "只给 OpenClaw 用的托管 skills（~/.openclaw/skills）。",
+      hermes: "Nous Research Hermes Agent 的主 skills 目录（~/.hermes/skills）。",
     },
     tool: {
       global: "全局",
       codex: "Codex",
       claude: "Claude Code",
       antigravity: "Antigravity",
+      cursor: "Cursor",
+      opencode: "OpenCode",
+      openclaw: "OpenClaw",
+      hermes: "Hermes",
       all: "全部",
     },
     status: {
@@ -94,13 +112,14 @@ const translations = {
     logLoaded: "已刷新分类和 skills 列表。",
     logError: (message) => `操作失败：${message}`,
     confirmDelete: (name, tool) => `确定要从 ${toolLabel(tool)} 删除 skill “${name}” 吗？`,
-    copyPromptTool: (name) => `把 “${name}” 复制到哪个分类？请输入：global / codex / claude / antigravity`,
+    copyPromptTool: (name) =>
+      `把 “${name}” 复制到哪个分类？请输入：global / codex / claude / antigravity / cursor / opencode / openclaw / hermes`,
     copyPromptName: (name) => `复制后的名称是什么？直接回车表示保持 “${name}”`,
     copied: (name) => `已复制 ${name}`,
   },
   en: {
     brandEyebrow: "Skills Hub",
-    brandTitle: "Skills Manager",
+    brandTitle: "Esay Cloud Skills",
     brandSubtitle: "Browse and manage skills by tool. The first tab is the shared global set.",
     setupButton: "Initialize iCloud",
     refreshButton: "Refresh",
@@ -130,16 +149,24 @@ const translations = {
     noValue: "—",
     healthy: "Healthy: no issues found.",
     toolDescriptions: {
-      global: "Shared skills available to every tool.",
+      global: "Shared skills for every tool (e.g. ~/.agent/skills).",
       codex: "Skills used only by Codex.",
       claude: "Skills used only by Claude Code.",
       antigravity: "Skills used only by Antigravity.",
+      cursor: "User-level Cursor skills (~/.cursor/skills, also ~/.agents/skills when present).",
+      opencode: "OpenCode global skills (~/.config/opencode/skills).",
+      openclaw: "OpenClaw managed local skills (~/.openclaw/skills).",
+      hermes: "Nous Research Hermes Agent home skills (~/.hermes/skills).",
     },
     tool: {
       global: "Global",
       codex: "Codex",
       claude: "Claude Code",
       antigravity: "Antigravity",
+      cursor: "Cursor",
+      opencode: "OpenCode",
+      openclaw: "OpenClaw",
+      hermes: "Hermes",
       all: "All",
     },
     status: {
@@ -165,14 +192,15 @@ const translations = {
     logLoaded: "Refreshed categories and skill lists.",
     logError: (message) => `Action failed: ${message}`,
     confirmDelete: (name, tool) => `Delete skill "${name}" from ${toolLabel(tool)}?`,
-    copyPromptTool: (name) => `Copy "${name}" to which category? Enter: global / codex / claude / antigravity`,
+    copyPromptTool: (name) =>
+      `Copy "${name}" to which category? Enter: global / codex / claude / antigravity / cursor / opencode / openclaw / hermes`,
     copyPromptName: (name) => `New name for the copy? Leave blank to keep "${name}"`,
     copied: (name) => `Copied ${name}`,
   },
 };
 
 const state = {
-  language: localStorage.getItem("skills-manager-language") || "zh",
+  language: localStorage.getItem("esay-cloud-skills-language") || "zh",
   activeTool: "global",
   targets: [],
   skills: [],
@@ -210,7 +238,7 @@ function pushLog(message) {
 
 function applyTranslations() {
   doc.lang = state.language === "zh" ? "zh-CN" : "en";
-  localStorage.setItem("skills-manager-language", state.language);
+  localStorage.setItem("esay-cloud-skills-language", state.language);
   for (const node of document.querySelectorAll("[data-i18n]")) {
     node.textContent = t(node.dataset.i18n);
   }

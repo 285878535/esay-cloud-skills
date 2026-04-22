@@ -1,1 +1,1 @@
-{"default":{"identifier":"default","description":"Default desktop capability for the Skills Manager app.","local":true,"windows":["main"],"permissions":["core:default"]}}
+{"default":{"identifier":"default","description":"Default desktop capability for the Esay Cloud Skills app.","local":true,"windows":["main"],"permissions":["core:default"]}}
