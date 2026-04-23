@@ -38,6 +38,7 @@ Usage:
   esay-cloud-skills copy-skill <source-tool> <skill-name> <target-tool> [target-name]
   esay-cloud-skills doctor
   esay-cloud-skills config-path
+  esay-cloud-skills init-config
   esay-cloud-skills help
 `);
 }
@@ -235,7 +236,8 @@ export async function run(argv) {
         emit(payload, parsed.json);
         if (!parsed.json) {
           for (const result of results) {
-            console.log(`[${result.tool}] ${result.message}`);
+            const tag = result.skipped ? "skipped" : "ok";
+            console.log(`[${result.tool}] (${tag}) ${result.message}`);
           }
         }
         await saveConfig(config);

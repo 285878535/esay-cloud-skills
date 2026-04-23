@@ -55,7 +55,11 @@ node ./src/cli.js restore codex
 
 ### Desktop App
 
-The project includes a Tauri desktop shell. To run the desktop app in development:
+The project includes a Tauri desktop shell. The **only** UI sources used by Tauri live under `frontend/` (static `index.html`, `frontend/ui/*`).
+
+The desktop shell runs the same Node CLI as the command line. **You still need Node.js installed and on `PATH`** for the bundled app to work. Release builds ship a copy of `src/*.js` inside the app’s Resources folder (`cli/`), so the app does not depend on your project checkout path.
+
+To run the desktop app in development:
 
 ```bash
 npm install
@@ -68,12 +72,15 @@ To build a macOS app bundle:
 npm run tauri:build
 ```
 
+The desktop “More” menu supports **link with copy** (same as `link --copy`) and **reset default config** (same as `init-config`).
+
 ### Commands
 - `scan`: Detects known local paths and shows their status.
 - `setup`: Initializes the config file and shared iCloud directory structure.
+- `init-config`: Writes a fresh default `config.json` (overwrites the existing file at the standard path).
 - `link <target> [--copy]`: Replaces the local folder with a symlink into iCloud. **By default** (no flag) the app **moves** your existing local skills directory into the iCloud path with a single `rename` on the same volume—**no full-file duplicate** (like Finder “move”). Use **`--copy`** only if you want the old behavior: copy into iCloud and keep a `…/skills.backup-*` folder (enables `restore` to that backup). If local and iCloud are on **different volumes**, a one-time copy is still required; the temporary backup is then removed to avoid double disk use.
 - `unlink <target>`: Removes the managed symlink for a target and recreates an empty local directory.
-- `restore <target>`: Restores the most recent pre-link backup back to the local path.
+- `restore <target|all>`: Restores the most recent pre-link backup back to the local path. With `all`, each target is attempted independently: tools **without** a recorded backup are reported as **skipped** instead of failing the whole command.
 - `restore-machine`: Restores this machine from the shared iCloud layout.
 - `doctor`: Checks the current setup for missing paths, broken symlinks, etc. It also **warns** for each first-level **skill folder** (child directory) that is missing a `SKILL.md` file, following the same convention as many community tools (e.g. [reorx/skm](https://github.com/reorx/skm), [agentskills.io](https://agentskills.io/)).
 
@@ -88,7 +95,14 @@ npm run tauri:build
 - `delete-skill <tool> <skill-name>`: Deletes a specific skill.
 - `copy-skill <source-tool> <skill-name> <target-tool> [target-name]`: Copies a skill to another tool category.
 
+### Tests
+
+```bash
+npm test
+```
+
 ---
+
 
 <a name="chinese"></a>
 ## 中文
@@ -141,7 +155,11 @@ node ./src/cli.js restore codex
 
 ### 桌面端应用
 
-本项目包含一个 Tauri 桌面壳。在开发环境中运行桌面端：
+本项目包含一个 Tauri 桌面壳。Tauri 实际加载的静态界面**仅**在 `frontend/` 目录（`index.html` 与 `frontend/ui/*`）。
+
+桌面端通过 Node 调用与 CLI 相同的逻辑，因此本机仍需安装 **Node.js 且可在 `PATH` 中找到 `node`**。正式打包的应用会把 `src/*.js` 复制到应用包 Resources 下的 `cli/` 目录，不再依赖你本机上的仓库路径。
+
+在开发环境中运行桌面端：
 
 ```bash
 npm install
@@ -154,12 +172,15 @@ npm run tauri:dev
 npm run tauri:build
 ```
 
+桌面端「更多」菜单中支持 **勾选后按复制方式接入**（等同 `link --copy`）以及 **重置默认配置**（等同 `init-config`）。
+
 ### 命令一览
 - `scan`: 检测已知的本地路径并显示其当前状态。
 - `setup`: 初始化配置文件及 iCloud 共享目录结构。
+- `init-config`：写入一份新的默认 `config.json`（会覆盖标准路径下的现有文件）。
 - `link <target> [--copy]`：把本地路径改为指向 iCloud 的软链接。**默认**（不加参数）在本机与 iCloud 在同一磁盘时，用**整目录移动**（`rename`）进 iCloud，**不会把整份数据再复制一份**；需要旧版「复制到 iCloud + 保留 `…/skills.backup-*` 以便 `restore`」时，请加 **`--copy`**。若本机与 iCloud 不在同一卷，仍可能需一次复制，复制后会删掉临时目录以免长期占双倍空间。
 - `unlink <target>`: 移除指定工具的软链接，并在本地重新创建一个空文件夹。
-- `restore <target>`: 将最后一次建立链接前的备份恢复到本地路径。
+- `restore <target|all>`: 将最后一次建立链接前的备份恢复到本地路径。使用 `all` 时对每个分类单独尝试：没有记录备份的分类会标记为 **skipped**，不会让整个命令失败。
 - `restore-machine`: 根据 iCloud 中的共享结构恢复当前机器的技能目录。
 - `doctor`：检查路径、软链等；并对每个**一级 skill 子目录**检查是否含 **`SKILL.md`**，与社区常见约定（如 [reorx/skm](https://github.com/reorx/skm)、[agentskills.io](https://agentskills.io/)）一致，缺少时给出 **warn**。
 
@@ -173,3 +194,10 @@ npm run tauri:build
 - `list-skills <target>`: 列出特定目标或所有目标中的所有 skills。
 - `delete-skill <tool> <skill-name>`: 删除某个特定的 skill。
 - `copy-skill <source-tool> <skill-name> <target-tool> [target-name]`: 将一个 skill 复制到其他工具分类下。
+
+### 测试
+
+```bash
+npm test
+```
+

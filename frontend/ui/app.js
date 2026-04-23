@@ -7,12 +7,15 @@ const elements = {
   title: document.querySelector("#current-tool-title"),
   description: document.querySelector("#current-tool-description"),
   syncHint: document.querySelector("#sync-hint"),
+  pathMismatchNote: document.querySelector("#path-mismatch-note"),
   statusText: document.querySelector("#status-text"),
   countText: document.querySelector("#count-text"),
   tableBody: document.querySelector("#skills-table-body"),
   emptyState: document.querySelector("#empty-state"),
   template: document.querySelector("#skill-row-template"),
   setupButton: document.querySelector("#setup-button"),
+  initConfigButton: document.querySelector("#init-config-button"),
+  linkCopyCheckbox: document.querySelector("#link-copy-checkbox"),
   restoreMachineButton: document.querySelector("#restore-machine-button"),
   refreshButton: document.querySelector("#refresh-button"),
   linkButton: document.querySelector("#link-button"),
@@ -61,9 +64,13 @@ const translations = {
     openICloudHelp: "在 Finder 中打开当前工具对应的 iCloud 共享目录",
     moreHelp: "展开较少使用的管理操作",
     linkHelp: "把当前工具的 skills 目录接到 iCloud",
+    linkCopyLabel: "接入时使用复制（--copy，保留 skills.backup）",
+    linkCopyHelp: "勾选后等价于 CLI 的 link --copy：复制进 iCloud 并在本机保留备份目录，便于「恢复备份」。默认不勾选为整目录移动（同盘 rename）。",
     unlinkHelp: "取消当前工具到 iCloud 的连接，但不删除 iCloud 数据",
     restoreHelp: "把最近一次备份恢复回本地目录",
     setupHelp: "创建默认的 iCloud 共享目录结构",
+    initConfigButton: "重置默认配置",
+    initConfigHelp: "等价于 CLI 的 init-config：写入一份新的默认 config.json（会覆盖当前文件）",
     restoreMachineHelp: "在新电脑上按共享目录自动恢复本机路径",
     openButtonHelp: "在 Finder 中定位这个 skill",
     copyButtonHelp: "把这个 skill 复制到另一个工具分类",
@@ -114,6 +121,10 @@ const translations = {
     specMissingSkillMd: "无 SKILL.md",
     specHasSkillMdHelp: "子目录下存在 SKILL.md（常见 Agent / skm 类工具约定）",
     specMissingSkillMdHelp: "子目录中未找到 SKILL.md。可参考 agentskills.io 或 reorx/skm 的约定。",
+    pathMismatchNote:
+      "本地软链解析到的目录不是当前分类应有的 iCloud 路径（例如 Cursor 链到了 AI-Skills/global）。列表会与「全局」重复。请在「更多」里先「取消接入」再重新「接入」，或运行 CLI：esay-cloud-skills doctor。",
+    cursorAgentsPathNote:
+      "当前使用的本地根路径是 ~/.agents/skills（未检测到 ~/.cursor/skills）。这是多工具常用的共享目录，与「全局」的 ~/.agent/skills 不是同一路径。",
   },
   en: {
     title: "Esay Cloud Skills",
@@ -138,9 +149,13 @@ const translations = {
     openICloudHelp: "Open the shared iCloud folder for the current tool in Finder",
     moreHelp: "Show less common management actions",
     linkHelp: "Connect the current tool's skills folder to iCloud",
+    linkCopyLabel: "Link with copy (--copy, keep skills.backup)",
+    linkCopyHelp: "Same as CLI link --copy: copy into iCloud and keep a backup folder for Restore. Leave off for move/rename on same volume.",
     unlinkHelp: "Disconnect the current tool from iCloud without deleting shared data",
     restoreHelp: "Restore the latest backup to the local folder",
     setupHelp: "Create the default iCloud shared folder layout",
+    initConfigButton: "Reset default config",
+    initConfigHelp: "Same as CLI init-config: writes a fresh default config.json (overwrites the current file)",
     restoreMachineHelp: "Restore local paths on a new Mac from the shared layout",
     openButtonHelp: "Reveal this skill in Finder",
     copyButtonHelp: "Copy this skill to another tool category",
@@ -191,6 +206,10 @@ const translations = {
     specMissingSkillMd: "No SKILL.md",
     specHasSkillMdHelp: "Conventional agent skill (SKILL.md present, same as tools like reorx/skm expect)",
     specMissingSkillMdHelp: "No SKILL.md in this folder. Use agentskills.io / SKM-style layout to be discoverable.",
+    pathMismatchNote:
+      "The local symlink resolves to a different path than this category’s expected iCloud folder (e.g. Cursor points at AI-Skills/global), so the list can match Global. Unlink then Link again in More, or run: esay-cloud-skills doctor.",
+    cursorAgentsPathNote:
+      "Using ~/.agents/skills because ~/.cursor/skills was not found. That shared path is not the same as Global’s ~/.agent/skills.",
   },
 };
 
@@ -282,6 +301,19 @@ function renderHeader() {
     elements.syncHint.textContent = text;
     elements.syncHint.hidden = !text;
   }
+
+  if (elements.pathMismatchNote) {
+    if (group?.symlinkTargetMismatch) {
+      elements.pathMismatchNote.textContent = t("pathMismatchNote");
+      elements.pathMismatchNote.hidden = false;
+    } else if (state.activeTool === "cursor" && group?.localPath?.includes(".agents/skills")) {
+      elements.pathMismatchNote.textContent = t("cursorAgentsPathNote");
+      elements.pathMismatchNote.hidden = false;
+    } else {
+      elements.pathMismatchNote.textContent = "";
+      elements.pathMismatchNote.hidden = true;
+    }
+  }
 }
 
 async function revealPath(path) {
@@ -312,8 +344,13 @@ async function loadData() {
   render();
 }
 
-async function runToolAction(action) {
-  await invoke("run_action", { action, target: state.activeTool });
+async function runToolAction(action, options = {}) {
+  const target = options.target ?? state.activeTool;
+  const payload = { action, target };
+  if (action === "link") {
+    payload.linkCopy = elements.linkCopyCheckbox?.checked ?? false;
+  }
+  await invoke("run_action", payload);
   await loadData();
 }
 
@@ -431,14 +468,17 @@ function bindEvents() {
 
   elements.setupButton.addEventListener("click", async () => {
     closeMoreMenu();
-    await invoke("run_action", { action: "setup", target: "all" });
-    await loadData();
+    await runToolAction("setup", { target: "all" });
+  });
+
+  elements.initConfigButton.addEventListener("click", async () => {
+    closeMoreMenu();
+    await runToolAction("init-config", { target: "all" });
   });
 
   elements.restoreMachineButton.addEventListener("click", async () => {
     closeMoreMenu();
-    await invoke("run_action", { action: "restore-machine", target: "all" });
-    await loadData();
+    await runToolAction("restore-machine", { target: "all" });
   });
 
   elements.refreshButton.addEventListener("click", async () => {
@@ -472,16 +512,18 @@ function bindEvents() {
   });
 
   elements.openLocalButton.addEventListener("click", async () => {
-    const target = currentTarget();
-    const path = target?.localPath;
+    const group = currentSkillsGroup();
+    const scanRow = currentTarget();
+    const path = group?.localPath ?? scanRow?.localPath;
     if (path) {
       await revealPath(path);
     }
   });
 
   elements.openICloudButton.addEventListener("click", async () => {
-    const target = currentTarget();
-    const path = target?.iCloudPath;
+    const group = currentSkillsGroup();
+    const scanRow = currentTarget();
+    const path = group?.iCloudPath ?? scanRow?.iCloudPath;
     if (path) {
       await revealPath(path);
     }

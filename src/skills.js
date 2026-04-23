@@ -63,10 +63,6 @@ async function countEntries(targetPath) {
   return count;
 }
 
-async function hasEntries(targetPath) {
-  return (await countEntries(targetPath)) > 0;
-}
-
 function resolveTool(config, toolName) {
   const tool = config.tools[toolName];
 
@@ -161,12 +157,18 @@ async function resolveToolPaths(config, toolName) {
     source = "icloud";
   }
 
+  const symlinkTargetMismatch =
+    localInfo.isSymbolicLink &&
+    activePath != null &&
+    path.normalize(activePath) !== path.normalize(iCloudPath);
+
   return {
     tool,
     localPath,
     iCloudPath,
     activePath,
     source,
+    symlinkTargetMismatch,
     localInfo,
     iCloudInfo,
   };
@@ -255,7 +257,8 @@ export async function detectTargets(config) {
 }
 
 export async function listSkills(config, toolName) {
-  const { activePath, iCloudPath, localPath, source } = await resolveToolPaths(config, toolName);
+  const r = await resolveToolPaths(config, toolName);
+  const { activePath, iCloudPath, localPath, source, symlinkTargetMismatch } = r;
 
   if (!activePath) {
     return {
@@ -264,6 +267,7 @@ export async function listSkills(config, toolName) {
       rootPath: iCloudPath,
       localPath,
       iCloudPath,
+      symlinkTargetMismatch: false,
       items: [],
     };
   }
@@ -274,6 +278,7 @@ export async function listSkills(config, toolName) {
     rootPath: activePath,
     localPath,
     iCloudPath,
+    symlinkTargetMismatch,
     items: await listImmediateEntries(activePath),
   };
 }
@@ -640,7 +645,15 @@ export async function restoreAllTargets(config) {
   const results = [];
 
   for (const toolName of Object.keys(config.tools)) {
-    results.push(await restoreTarget(config, toolName));
+    try {
+      results.push(await restoreTarget(config, toolName));
+    } catch (error) {
+      results.push({
+        tool: toolName,
+        message: error instanceof Error ? error.message : String(error),
+        skipped: true,
+      });
+    }
   }
 
   return results;

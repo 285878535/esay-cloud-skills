@@ -11,6 +11,7 @@
     "scan": "node ./src/cli.js scan",
     "setup": "node ./src/cli.js setup",
     "doctor": "node ./src/cli.js doctor",
+    "test": "node --test test/*.mjs",
     "tauri:dev": "tauri dev",
     "tauri:build": "tauri build"
   },

@@ -1,12 +1,15 @@
 use notify::{Config, Event, RecommendedWatcher, RecursiveMode, Watcher};
+use serde::Deserialize;
 use serde::Serialize;
 use serde_json::Value;
+use std::ffi::OsStr;
 use std::path::{Path, PathBuf};
 use std::process::Command;
 use std::sync::Mutex;
 use std::time::{Duration, Instant};
 use tauri::AppHandle;
 use tauri::Emitter;
+use tauri::Manager;
 
 #[derive(Serialize)]
 struct ScanResponse {
@@ -29,6 +32,15 @@ struct SkillsResponse {
     results: Vec<Value>,
 }
 
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct RunActionInput {
+    action: String,
+    target: String,
+    #[serde(default)]
+    link_copy: Option<bool>,
+}
+
 struct WatchState {
     path: Option<String>,
     _watcher: Option<RecommendedWatcher>,
@@ -43,20 +55,40 @@ impl Default for WatchState {
     }
 }
 
-fn project_root() -> PathBuf {
+fn dev_cli_dir() -> PathBuf {
     Path::new(env!("CARGO_MANIFEST_DIR"))
         .parent()
         .expect("src-tauri should have a parent directory")
-        .to_path_buf()
+        .join("src")
 }
 
-fn run_cli(args: &[&str]) -> Result<Value, String> {
-    let root = project_root();
+fn resolve_cli_dir(app: &AppHandle) -> Result<PathBuf, String> {
+    if let Ok(res_dir) = app.path().resource_dir() {
+        let bundled = res_dir.join("cli");
+        if bundled.join("cli.js").is_file() {
+            return Ok(bundled);
+        }
+    }
+
+    let dev = dev_cli_dir();
+    if dev.join("cli.js").is_file() {
+        return Ok(dev);
+    }
+
+    Err(
+        "Could not find CLI (cli.js). Run from the project checkout, or reinstall the app bundle."
+            .to_string(),
+    )
+}
+
+fn run_cli(app: &AppHandle, args: &[&str]) -> Result<Value, String> {
+    let cli_dir = resolve_cli_dir(app)?;
+    let cli_js = cli_dir.join("cli.js");
     let output = Command::new("node")
-        .arg("./src/cli.js")
-        .args(args)
+        .arg(cli_js.as_os_str())
+        .args(args.iter().map(|s| OsStr::new(*s)))
         .arg("--json")
-        .current_dir(root)
+        .current_dir(&cli_dir)
         .output()
         .map_err(|error| format!("Failed to launch Node CLI: {error}"))?;
 
@@ -153,8 +185,8 @@ fn set_skills_watch(
 }
 
 #[tauri::command]
-fn scan() -> Result<ScanResponse, String> {
-    let value = run_cli(&["scan"])?;
+fn scan(app: AppHandle) -> Result<ScanResponse, String> {
+    let value = run_cli(&app, &["scan"])?;
     let root = value
         .get("iCloudRoot")
         .and_then(Value::as_str)
@@ -173,16 +205,25 @@ fn scan() -> Result<ScanResponse, String> {
 }
 
 #[tauri::command]
-fn run_action(action: String, target: String) -> Result<ActionResponse, String> {
-    let args: Vec<&str> = match action.as_str() {
-        "setup" => vec!["setup"],
-        "doctor" => vec!["doctor"],
-        "restore-machine" => vec!["restore-machine"],
-        "link" | "unlink" | "restore" => vec![action.as_str(), target.as_str()],
-        _ => return Err(format!("Unsupported action: {action}")),
+fn run_action(app: AppHandle, input: RunActionInput) -> Result<ActionResponse, String> {
+    let mut args: Vec<String> = match input.action.as_str() {
+        "setup" => vec!["setup".to_string()],
+        "doctor" => vec!["doctor".to_string()],
+        "restore-machine" => vec!["restore-machine".to_string()],
+        "init-config" => vec!["init-config".to_string()],
+        "link" => {
+            let mut v = vec!["link".to_string(), input.target.clone()];
+            if input.link_copy == Some(true) {
+                v.push("--copy".to_string());
+            }
+            v
+        }
+        "unlink" | "restore" => vec![input.action.clone(), input.target.clone()],
+        _ => return Err(format!("Unsupported action: {}", input.action)),
     };
 
-    let value = run_cli(&args)?;
+    let arg_refs: Vec<&str> = args.iter().map(String::as_str).collect();
+    let value = run_cli(&app, &arg_refs)?;
     let message = value
         .get("message")
         .and_then(Value::as_str)
@@ -205,9 +246,9 @@ fn run_action(action: String, target: String) -> Result<ActionResponse, String> 
 }
 
 #[tauri::command]
-fn list_skills(target: String) -> Result<SkillsResponse, String> {
+fn list_skills(app: AppHandle, target: String) -> Result<SkillsResponse, String> {
     let args: Vec<&str> = vec!["list-skills", target.as_str()];
-    let value = run_cli(&args)?;
+    let value = run_cli(&app, &args)?;
 
     let results = if let Some(array) = value.get("results").and_then(Value::as_array) {
         array.clone()
@@ -219,8 +260,8 @@ fn list_skills(target: String) -> Result<SkillsResponse, String> {
 }
 
 #[tauri::command]
-fn delete_skill(tool: String, skill_name: String) -> Result<ActionResponse, String> {
-    let value = run_cli(&["delete-skill", tool.as_str(), skill_name.as_str()])?;
+fn delete_skill(app: AppHandle, tool: String, skill_name: String) -> Result<ActionResponse, String> {
+    let value = run_cli(&app, &["delete-skill", tool.as_str(), skill_name.as_str()])?;
     let message = value
         .get("message")
         .and_then(Value::as_str)
@@ -236,17 +277,23 @@ fn delete_skill(tool: String, skill_name: String) -> Result<ActionResponse, Stri
 
 #[tauri::command]
 fn copy_skill(
+    app: AppHandle,
     source_tool: String,
     skill_name: String,
     target_tool: String,
     target_name: Option<String>,
 ) -> Result<ActionResponse, String> {
-    let mut args = vec!["copy-skill", source_tool.as_str(), skill_name.as_str(), target_tool.as_str()];
-    if let Some(name) = target_name.as_deref() {
-        args.push(name);
+    let mut owned = vec![
+        "copy-skill".to_string(),
+        source_tool,
+        skill_name,
+        target_tool,
+    ];
+    if let Some(name) = target_name {
+        owned.push(name);
     }
-
-    let value = run_cli(&args)?;
+    let arg_refs: Vec<&str> = owned.iter().map(String::as_str).collect();
+    let value = run_cli(&app, &arg_refs)?;
     let message = value
         .get("message")
         .and_then(Value::as_str)

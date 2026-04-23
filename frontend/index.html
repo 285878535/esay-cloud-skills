@@ -25,10 +25,15 @@
           <div class="more-menu">
             <button id="more-button" class="button ghost" data-i18n="moreButton" data-i18n-title="moreHelp">更多</button>
             <div id="more-panel" class="more-panel hidden">
+              <label class="menu-checkbox" data-i18n-title="linkCopyHelp">
+                <input type="checkbox" id="link-copy-checkbox" />
+                <span data-i18n="linkCopyLabel">接入时使用复制（保留备份）</span>
+              </label>
               <button id="link-button" class="menu-item" data-i18n="linkButton" data-i18n-title="linkHelp">接入</button>
               <button id="unlink-button" class="menu-item" data-i18n="unlinkButton" data-i18n-title="unlinkHelp">取消接入</button>
               <button id="restore-button" class="menu-item" data-i18n="restoreButton" data-i18n-title="restoreHelp">恢复备份</button>
               <button id="setup-button" class="menu-item" data-i18n="setupButton" data-i18n-title="setupHelp">初始化 iCloud</button>
+              <button id="init-config-button" class="menu-item" data-i18n="initConfigButton" data-i18n-title="initConfigHelp">重置默认配置</button>
               <button id="restore-machine-button" class="menu-item" data-i18n="restoreMachineButton" data-i18n-title="restoreMachineHelp">恢复本机环境</button>
             </div>
           </div>
@@ -43,6 +48,7 @@
             <h2 id="current-tool-title">全局</h2>
             <p id="current-tool-description" class="list-desc">—</p>
             <p id="sync-hint" class="sync-hint" hidden>—</p>
+            <p id="path-mismatch-note" class="sync-hint sync-hint--warn" hidden></p>
           </div>
           <div class="list-meta">
             <span id="status-text" class="subtle">—</span>
