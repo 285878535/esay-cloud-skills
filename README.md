@@ -75,7 +75,15 @@ npm run tauri:build
 - `unlink <target>`: Removes the managed symlink for a target and recreates an empty local directory.
 - `restore <target>`: Restores the most recent pre-link backup back to the local path.
 - `restore-machine`: Restores this machine from the shared iCloud layout.
-- `doctor`: Checks the current setup for missing paths, broken symlinks, etc.
+- `doctor`: Checks the current setup for missing paths, broken symlinks, etc. It also **warns** for each first-level **skill folder** (child directory) that is missing a `SKILL.md` file, following the same convention as many community tools (e.g. [reorx/skm](https://github.com/reorx/skm), [agentskills.io](https://agentskills.io/)).
+
+### Related tools (not bundled)
+
+- **[reorx/skm](https://github.com/reorx/skm)**: Install skills from GitHub or local paths into `~/.claude/skills`, etc., via a YAML config and per-skill symlinks.
+- **[nnnggel/skills-management](https://github.com/nnnggel/skills-management)**: Broader “skills manager” with GitHub (including sparse checkout) and project-scoped links.
+- **[yibie/skills-manager](https://github.com/yibie/skills-manager)**: Native macOS app for discover / install / test / manage across several agents.
+
+**Esay Cloud Skills** focuses on **iCloud + per-tool root symlinks**; the `SKILL.md` checks above align with the same on-disk layout those tools expect. **Exception:** the `hermes` target uses a nested `category/…/skill/…/SKILL.md` layout; first-level `doctor` / table checks for `SKILL.md` are **skipped** for that tool to avoid false positives.
 - `list-skills <target>`: Lists all skills in a specific target or all targets.
 - `delete-skill <tool> <skill-name>`: Deletes a specific skill.
 - `copy-skill <source-tool> <skill-name> <target-tool> [target-name]`: Copies a skill to another tool category.
@@ -153,7 +161,15 @@ npm run tauri:build
 - `unlink <target>`: 移除指定工具的软链接，并在本地重新创建一个空文件夹。
 - `restore <target>`: 将最后一次建立链接前的备份恢复到本地路径。
 - `restore-machine`: 根据 iCloud 中的共享结构恢复当前机器的技能目录。
-- `doctor`: 检查当前配置是否存在问题（如路径缺失、链接损坏等）。
+- `doctor`：检查路径、软链等；并对每个**一级 skill 子目录**检查是否含 **`SKILL.md`**，与社区常见约定（如 [reorx/skm](https://github.com/reorx/skm)、[agentskills.io](https://agentskills.io/)）一致，缺少时给出 **warn**。
+
+### 相关项目（本仓库不内置）
+
+- **[reorx/skm](https://github.com/reorx/skm)**：用 YAML 配置，从 GitHub/本地把各 skill 软链到 `~/.claude/skills` 等。
+- **[nnnggel/skills-management](https://github.com/nnnggel/skills-management)**：带 GitHub（含 sparse）、项目级链等能力。
+- **[yibie/skills-manager](https://github.com/yibie/skills-manager)**：macOS 原生，偏发现/安装/沙箱测试/多代理管理。
+
+**Esay Cloud Skills** 侧重 **iCloud + 按工具根目录软链**；`SKILL.md` 检查与这些工具期望的目录结构一致。**例外**：`hermes` 为多层 `分类/…/技能/SKILL.md` 结构，对其**不做**根目录下逐文件夹的 `SKILL.md` 强校验，以免误报。
 - `list-skills <target>`: 列出特定目标或所有目标中的所有 skills。
 - `delete-skill <tool> <skill-name>`: 删除某个特定的 skill。
 - `copy-skill <source-tool> <skill-name> <target-tool> [target-name]`: 将一个 skill 复制到其他工具分类下。

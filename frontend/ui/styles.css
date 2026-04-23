@@ -339,6 +339,18 @@ body {
   line-height: 1.2;
 }
 
+.skill-spec {
+  font-size: 9px;
+  line-height: 1.2;
+  margin-top: 2px;
+  color: #5a6d4a;
+}
+
+.skill-spec.skill-spec--warn {
+  color: #8b4a3a;
+  font-weight: 500;
+}
+
 .col-path {
   min-width: 0;
 }

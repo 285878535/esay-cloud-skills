@@ -110,6 +110,10 @@ const translations = {
     syncHintLocal:
       "当前是本地真实目录，尚未用软链接到 iCloud。可在「更多 → 接入」后，让本机路径指向 iCloud 中同一份数据，再保存即会进入 iCloud。",
     syncHintMissing: "未找到有效的 skills 根目录。可先执行「初始化 iCloud」或检查工具是否已安装。",
+    specHasSkillMd: "含 SKILL.md",
+    specMissingSkillMd: "无 SKILL.md",
+    specHasSkillMdHelp: "子目录下存在 SKILL.md（常见 Agent / skm 类工具约定）",
+    specMissingSkillMdHelp: "子目录中未找到 SKILL.md。可参考 agentskills.io 或 reorx/skm 的约定。",
   },
   en: {
     title: "Esay Cloud Skills",
@@ -183,6 +187,10 @@ const translations = {
     syncHintLocal:
       "This is a normal local folder, not yet symlinked to iCloud. Use More → Link so the app path points at the shared iCloud copy; then saves go into iCloud.",
     syncHintMissing: "No valid skills root found. Run Initialize iCloud in More, or check that the tool is installed.",
+    specHasSkillMd: "Has SKILL.md",
+    specMissingSkillMd: "No SKILL.md",
+    specHasSkillMdHelp: "Conventional agent skill (SKILL.md present, same as tools like reorx/skm expect)",
+    specMissingSkillMdHelp: "No SKILL.md in this folder. Use agentskills.io / SKM-style layout to be discoverable.",
   },
 };
 
@@ -352,6 +360,25 @@ function renderTable() {
     const updatedEl = fragment.querySelector(".skill-updated");
     fragment.querySelector(".skill-name").textContent = skill.name;
     fragment.querySelector(".skill-kind").textContent = kindLabel(skill.kind);
+    const specEl = fragment.querySelector(".skill-spec");
+    if (state.activeTool === "hermes") {
+      specEl.hidden = true;
+      specEl.textContent = "";
+    } else if (skill.kind === "directory") {
+      specEl.hidden = false;
+      if (skill.hasSkillMd) {
+        specEl.textContent = t("specHasSkillMd");
+        specEl.classList.remove("skill-spec--warn");
+        specEl.title = t("specHasSkillMdHelp");
+      } else {
+        specEl.textContent = t("specMissingSkillMd");
+        specEl.classList.add("skill-spec--warn");
+        specEl.title = t("specMissingSkillMdHelp");
+      }
+    } else {
+      specEl.hidden = true;
+      specEl.textContent = "";
+    }
     fragment.querySelector(".skill-path").textContent = skill.path;
     updatedEl.textContent = formatModifiedAt(rawModified);
     if (rawModified) {

@@ -1,5 +1,5 @@
 import path from "node:path";
-import { cp, lstat, mkdir, opendir, readlink, rename, rm, symlink, unlink } from "node:fs/promises";
+import { cp, lstat, mkdir, opendir, readlink, rename, rm, stat, symlink, unlink } from "node:fs/promises";
 
 function timestamp() {
   return new Date().toISOString().replaceAll(":", "-");
@@ -172,6 +172,14 @@ async function resolveToolPaths(config, toolName) {
   };
 }
 
+/**
+ * Conventional “agent skills” (see agentskills.io) expect each skill folder to contain a SKILL.md.
+ * Same idea as tools like reorx/skm which detect valid skills via SKILL.md.
+ */
+async function directoryHasSkillMd(dirPath) {
+  return exists(path.join(dirPath, "SKILL.md"));
+}
+
 async function listImmediateEntries(rootPath) {
   const results = [];
   const directory = await opendir(rootPath);
@@ -179,12 +187,23 @@ async function listImmediateEntries(rootPath) {
   for await (const entry of directory) {
     const fullPath = path.join(rootPath, entry.name);
     const stats = await lstat(fullPath);
+    let follow;
+    try {
+      follow = await stat(fullPath);
+    } catch {
+      follow = null;
+    }
+    const isDir = follow != null && follow.isDirectory();
+    const hasSkillMd = isDir && (await directoryHasSkillMd(fullPath));
+    const mtimeSource = follow && follow.mtime != null ? follow : stats;
+
     results.push({
       name: entry.name,
       path: fullPath,
-      kind: stats.isDirectory() ? "directory" : "file",
+      kind: isDir ? "directory" : "file",
       isSymlink: stats.isSymbolicLink(),
-      modifiedAt: stats.mtime.toISOString(),
+      hasSkillMd,
+      modifiedAt: mtimeSource.mtime.toISOString(),
     });
   }
 
@@ -627,6 +646,34 @@ export async function restoreAllTargets(config) {
   return results;
 }
 
+async function appendSkillSpecWarnings(issues, toolName, rootPath) {
+  if (toolName === "hermes") {
+    return;
+  }
+  if (!rootPath || !(await exists(rootPath))) {
+    return;
+  }
+
+  let list;
+  try {
+    list = await listImmediateEntries(rootPath);
+  } catch {
+    return;
+  }
+
+  for (const item of list) {
+    if (item.kind !== "directory" || item.hasSkillMd) {
+      continue;
+    }
+
+    issues.push({
+      severity: "warn",
+      tool: toolName,
+      message: `Skill folder "${item.name}" has no SKILL.md (conventional layout). ${item.path}`,
+    });
+  }
+}
+
 export async function runDoctor(config) {
   const issues = [];
 
@@ -678,6 +725,8 @@ export async function runDoctor(config) {
           tool: toolName,
           message: `Symlink points to ${resolved} instead of ${iCloudPath}`,
         });
+      } else {
+        await appendSkillSpecWarnings(issues, toolName, iCloudPath);
       }
       continue;
     }
@@ -688,6 +737,7 @@ export async function runDoctor(config) {
         tool: toolName,
         message: `Local path is still a real directory and is not linked: ${localPath}`,
       });
+      await appendSkillSpecWarnings(issues, toolName, localPath);
     }
 
     if (tool.state?.lastBackupPath && !(await exists(tool.state.lastBackupPath))) {
